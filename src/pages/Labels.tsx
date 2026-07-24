@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { products } from "../data/site";
 import type { Product } from "../data/site";
 import { SearchInput, EmptyState, formatCurrency } from "../components/Shared";
-import { Printer, Search, X, Package, Check, Plus, Minus, Settings2, Eye, RotateCcw } from "lucide-react";
+import { Printer, X, Package, Check, Plus, Minus, Settings2, Eye, RotateCcw } from "lucide-react";
 import { generateId } from "../components/Shared";
 import { loadLabelConfig, saveLabelConfig, DEFAULT_LABEL_CONFIG, type LabelConfig } from "../types/label";
 
@@ -328,7 +328,7 @@ export function Labels() {
         {configSaved&&<span className="text-green-400 text-xs font-medium flex items-center gap-1">{`\u2713`} Đã lưu cấu hình</span>}
       </div>
 
-      <SearchInput placeholder="Tìm theo tên, mã sp hoặc barcode..." value={search} onChange={setSearch} icon={<Search className="w-4 h-4"/>} clearable/>
+      <SearchInput placeholder="Tìm theo tên, mã sp hoặc barcode..." value={search} onChange={setSearch} />
 
       {/* Layout: Left list + Right queue */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -345,7 +345,7 @@ export function Labels() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length===0?(<EmptyState icon={Package} message="Không tìm thấy sản phẩm nào."/>):(
+                {filtered.length===0?(<EmptyState message="Không tìm thấy sản phẩm nào."/>):(
                   filtered.map(product=>{
                     const qty=bulkCount[product.id]||1;
                     const queued=printQueue.filter(i=>i.product.id===product.id).length;
@@ -390,7 +390,7 @@ export function Labels() {
                 </>)}
               </div>
             </div>
-            {printQueue.length===0?(<EmptyState icon={Package} small message="Chưa có nhãn nào trong hàng chờ"/>):(
+            {printQueue.length===0?(<EmptyState message="Chưa có nhãn nào trong hàng chờ"/>):(
               <>
                 <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                   {printQueue.map((item,idx)=>(
