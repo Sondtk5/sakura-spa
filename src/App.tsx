@@ -7,6 +7,8 @@ import { Products } from "./pages/Products";
 import { Invoices } from "./pages/Invoices";
 import { Inventory } from "./pages/Inventory";
 import { Reports } from "./pages/Reports";
+import { Labels } from "./pages/Labels";
+import { Settings } from "./pages/Settings";
 
 export function App() {
   const [page, setPage] = useState("/");
@@ -41,6 +43,10 @@ export function App() {
         return <Inventory onNavigate={handleNavigate} />;
       case "/reports":
         return <Reports />;
+      case "/labels":
+        return <Labels />;
+      case "/settings":
+        return <Settings />;
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

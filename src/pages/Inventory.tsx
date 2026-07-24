@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { products, inventoryTransactions } from "../data/site";
 import type { InventoryTransaction } from "../data/site";
 import { SearchInput, Modal, Badge, EmptyState, generateId, formatCurrency, formatDate } from "../components/Shared";
-import { Warehouse, Plus, Search, ArrowDown, ArrowUp, ClipboardList, AlertTriangle, Package, List, Grid3X3 } from "lucide-react";
+import { Warehouse, Plus, Search, ArrowDown, ArrowUp, ClipboardList, AlertTriangle, Package, List, Grid3X3, Printer } from "lucide-react";
 
 export function Inventory({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [search, setSearch] = useState("");
@@ -188,22 +188,25 @@ export function Inventory({ onNavigate }: { onNavigate: (p: string) => void }) {
           <div className="space-y-2">
             {filteredTransactions.map(t => (
               <div key={t.id} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.type === "inbound" ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>
                     {t.type === "inbound" ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="text-sm text-white font-medium">{t.productName}</div>
-                    <div className="text-xs text-white/40">{t.productCode} · {t.ref}</div>
+                    <div className="text-xs text-white/40 truncate">{t.productCode} · {t.ref} · {formatDate(t.date)}</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-white font-medium">
-                    <span className={t.type === "inbound" ? "text-emerald-300" : "text-rose-300"}>
-                      {t.type === "inbound" ? "+" : "-"}{t.quantity}
-                    </span>
-                  </div>
-                  <div className="text-xs text-white/40">{formatDate(t.date)}</div>
+                <div className="flex items-center gap-3 shrink-0 ml-3">
+                  {t.type === "inbound" && t.quantity > 1 && (
+                    <span className="px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-[10px] font-bold whitespace-nowrap">Nhập x{t.quantity}</span>
+                  )}
+                  <button onClick={() => onNavigate("/labels")} title="Xem & in nhãn sản phẩm này" className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition">
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+                  <span className={`text-sm font-medium ${t.type === "inbound" ? "text-emerald-300" : "text-rose-300"}`}>
+                    {t.type === "inbound" ? "+" : "-"}{t.quantity}
+                  </span>
                 </div>
               </div>
             ))}

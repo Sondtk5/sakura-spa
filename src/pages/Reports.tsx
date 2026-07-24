@@ -10,6 +10,7 @@ export function Reports() {
   const [customEnd, setCustomEnd] = useState("");
   const [showDateInputs, setShowDateInputs] = useState(false);
   const [activeTab, setActiveTab] = useState<"revenue" | "profit" | "product-detail">("revenue");
+  const [chartType, setChartType] = useState<"bar" | "line">("bar");
 
   // Custom period helper
   const isInRange = (dateStr: string) => {
@@ -321,21 +322,17 @@ export function Reports() {
         )}
       </div>
 
-      {/* Chart — works for all periods */}
+            {/* Chart with bar/line toggle and auto-zoom */}
       {chartData.length > 0 && (
         <div className="bg-sakura-card rounded-2xl border border-white/10 p-5">
-          <h3 className="text-white font-semibold mb-4">Doanh thu theo {period === "today" ? "giờ" : period === "year" ? "tháng" : "ngày"}</h3>
-          <div className="flex items-end gap-[2px] h-40 overflow-x-auto">
-            {chartData.map((d, i) => (
-              <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1 group" style={{ width: `${Math.min(100 / chartData.length, 14)}%` }}>
-                <div className="relative w-full group">
-                  <div className="w-full rounded-t-md bg-gradient-to-t from-sakura-500 to-gold-400 transition-all hover:opacity-80 cursor-pointer" style={{ height: `${(d.revenue/maxRev)*100}%`, minHeight: d.revenue>0?"4px":"1px" }} />
-                  {d.revenue>0 && <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] text-gold-400 opacity-0 group-hover:opacity-100 whitespace-nowrap bg-black/70 px-1 rounded">{formatCurrency(d.revenue)}</div>}
-                </div>
-                <span className="text-[8px] text-white/40 truncate w-full text-center leading-none">{d.label}</span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 className="text-white font-semibold">Doanh thu theo {period === "today" ? "giờ" : period === "year" ? "tháng" : "ngày"}</h3>
+            <div className="flex gap-1 bg-white/5 rounded-lg p-0.5">
+              <button onClick={() => setChartType("bar")} className={`px-3 py-1 rounded-md text-xs transition ${chartType === "bar" ? "bg-sakura-500/40 text-white" : "text-white/50 hover:text-white/70"}`}>Cột</button>
+              <button onClick={() => setChartType("line")} className={`px-3 py-1 rounded-md text-xs transition ${chartType === "line" ? "bg-sakura-500/40 text-white" : "text-white/50 hover:text-white/70"}`}>Đường</button>
+            </div>
           </div>
+          <SimpleBarLineChart data={chartData} maxRev={maxRev} type={chartType} />
         </div>
       )}
 
@@ -434,4 +431,120 @@ function ProductDetailTable({ allProducts, invoiceItems }: { allProducts: any[];
         </tr>);
       })}
     </tbody></table></div></div>);
+}
+
+
+// ─── SVG Bar/Line Chart Component (auto-zoom to data range) ──────────────
+interface ChartDataPoint { label: string; revenue: number }
+
+function formatK(n: number): string {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + "k";
+  return String(Math.round(n));
+}
+
+function niceCeiling(v: number): number {
+  if (v <= 0) return 100;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const c = Math.ceil(v / mag) * mag;
+  return c < 100 ? 100 : c;
+}
+
+function tickVals(maxVal: number): number[] {
+  const t: number[] = [0];
+  for (let i = 1; i <= 4; i++) t.push(Math.round(maxVal / 5 * i));
+  return t;
+}
+
+function SimpleBarLineChart({ data, maxRev, type }: {
+  data: ChartDataPoint[];
+  maxRev: number;
+  type: "bar" | "line";
+}) {
+  const n = data.length;
+  const yMax = niceCeiling(maxRev || 1);
+  const svgH = 260;
+  const padTop = 30;
+  const padBot = 40;
+  const padL = 75;
+  const padR = 15;
+  const plotW = 600 - padL - padR;
+  const plotH = svgH - padTop - padBot;
+  const cellW = n === 1 ? plotW : plotW / (n - 1);
+
+  // Prepare points
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const px = n === 1 ? padL + plotW / 2 : padL + i * cellW;
+    const py = padTop + plotH - (data[i].revenue / yMax) * plotH;
+    pts.push({ x: px, y: py });
+  }
+
+  // Line path
+  const lp = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+
+  // Tick labels on Y axis
+  const ticks = tickVals(yMax);
+
+  return (
+    <div className="overflow-x-auto pb-2 custom-scrollbar">
+      <svg viewBox={`0 0 ${padL + plotW + padR + 10} ${svgH}`} style={{ minWidth: 300 }} preserveAspectRatio="xMidYMid meet">
+        {/* Defs */}
+        <defs>
+          <linearGradient id="sbGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#c2185b"/>
+            <stop offset="100%" stopColor="#d4a853"/>
+          </linearGradient>
+          <linearGradient id="laGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#d4a853" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="#d4a853" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+
+        {/* X-Axis baseline */}
+        <line x1={padL} y1={padTop + plotH} x2={padL + plotW} y2={padTop + plotH} stroke="rgba(255,255,255,0.1)" />
+
+        {/* Y gridlines */}
+        {ticks.map((tv, j) => {
+          const yp = padTop + plotH - (tv / yMax) * plotH;
+          return (<g key={j}>
+            <line x1={padL} y1={yp} x2={padL + plotW} y2={yp} stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+            <text x={padL - 8} y={yp + 4} fill="rgba(255,255,255,0.3)" fontSize="10" textAnchor="end">{formatK(tv)}</text>
+          </g>);
+        })}
+
+        {/* Bars mode */}
+        {type === "bar" && (() => {
+          const barWidth = Math.max(6, Math.min(40, (plotW - (n - 1) * 4) / n));
+          return <>
+            {pts.map((pt, idx) => {
+              const actualX = idx % 2 === 0 ? pt.x - barWidth / 2 : pt.x + cellW / 2 - barWidth / 2;
+              const bx = idx % 2 === 0 ? padL + idx * (cellW + 4) + (cellW - barWidth) / 2 : padL + idx * (cellW + 4) + (cellW - barWidth) / 2;
+              const bh = data[idx].revenue > 0 ? ((data[idx].revenue / yMax) * plotH) : 2;
+              const by = padTop + plotH - bh;
+              return (<rect key={idx} x={bx} y={by} width={barWidth} height={bh} rx={2} fill="url(#sbGrad)" opacity={0.85}><title>{`${data[idx].label}: ${formatCurrency(data[idx].revenue)}`}</title></rect>);
+            })}
+            {data.map((d, i) => (
+              <text key={"t"+i} x={padL + i * cellW + cellW/2} y={padTop + plotH + 18} fill="rgba(255,255,255,0.35)" fontSize="9" textAnchor="middle" transform={n > 16 ? `rotate(-30,${padL + i*cellW+cellW/2},${padTop+plotH+18})` : ""}>{d.label}</text>
+            ))}
+          </>;
+        })()}
+
+        {/* Line mode */}
+        {type !== "bar" && (<g>
+          {/* Area under curve */}
+          <path d={`${lp} L${pts[pts.length-1].x},${padTop+plotH} L${pts[0].x},${padTop+plotH} Z`} fill="url(#laGrad)" />
+          {/* Line */}
+          <path d={lp} fill="none" stroke="#d4a853" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Points */}
+          {pts.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#d4a853" stroke="#3d1f2e" strokeWidth="2"><title>{`${data[i].label}: ${formatCurrency(data[i].revenue)}`}</title></circle>))}
+          {/* Labels */}
+          {data.map((d, i) => (
+            <text key={"tl"+i} x={pts[i].x} y={padTop + plotH + 18} fill="rgba(255,255,255,0.35)" fontSize="9" textAnchor="middle" transform={n > 16 ? `rotate(-30,${pts[i].x},${padTop+plotH+18})` : ""}>{d.label}</text>
+          ))}
+        </g>)}
+      </svg>
+    </div>
+  );
 }

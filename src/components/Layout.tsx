@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { siteConfig } from "../data/site";
-import { LayoutDashboard, Users, Sparkles, Package, FileText, Warehouse, BarChart3, Menu, X } from "lucide-react";
+import { LayoutDashboard, Users, Sparkles, Package, FileText, Warehouse, BarChart3, Menu, X, Printer, Settings2 } from "lucide-react";
 
 const iconMap: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard className="w-4 h-4" />,
@@ -10,6 +10,8 @@ const iconMap: Record<string, React.ReactNode> = {
   FileText: <FileText className="w-4 h-4" />,
   Warehouse: <Warehouse className="w-4 h-4" />,
   BarChart3: <BarChart3 className="w-4 h-4" />,
+  Printer: <Printer className="w-4 h-4" />,
+  Settings2: <Settings2 className="w-4 h-4" />,
 };
 
 interface LayoutProps {

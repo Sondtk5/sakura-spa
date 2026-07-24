@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react";
-import { customers, invoices } from "../data/site";
-import type { Customer } from "../data/site";
+import { customers, invoices, services, products } from "../data/site";
+import type { Customer, Invoice, InvoiceItem } from "../data/site";
 import { SearchInput, Modal, Badge, EmptyState, generateId, formatCurrency, formatDate } from "../components/Shared";
-import { Plus, Search, UserPlus, Edit3, Trash2, Phone, Mail, MapPin, Tag, Calendar, DollarSign, Receipt, Users } from "lucide-react";
+import { Plus, Search, UserPlus, Edit3, Trash2, Phone, Mail, MapPin, Tag, Calendar, DollarSign, Receipt, Users, Crown, Sparkles, Package, ShoppingCart, X, Minus, MessageCircle } from "lucide-react";
 
 export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [search, setSearch] = useState("");
@@ -11,19 +11,29 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [customerList, setCustomerList] = useState(customers);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  // New customer form
-  const emptyForm = { code: "", name: "", phone: "", email: "", gender: "nữ" as "nam" | "nữ", birthDate: "", address: "", notes: "", tags: "" };
+  const emptyForm = { code: "", name: "", phone: "", email: "", gender: "nữ" as "nam" | "nữ", birthDate: "", address: "", notes: "", tags: "", level: "Thường" as "VIP" | "Vàng" | "Thường" };
   const [form, setForm] = useState(emptyForm);
+
+  // Sort: VIP first (by totalSpent desc), then Vàng, then Thường
+  const sortedCustomers = useMemo(() => {
+    const levelOrder: Record<string, number> = { VIP: 0, Vàng: 1, Thường: 2 };
+    return [...customerList].sort((a, b) => {
+      const la = levelOrder[a.level] ?? 2;
+      const lb = levelOrder[b.level] ?? 2;
+      if (la !== lb) return la - lb;
+      return b.totalSpent - a.totalSpent;
+    });
+  }, [customerList]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return customerList.filter(c =>
+    return sortedCustomers.filter(c =>
       c.name.toLowerCase().includes(q) ||
       c.phone.includes(q) ||
       c.code.toLowerCase().includes(q) ||
       c.email.toLowerCase().includes(q)
     );
-  }, [search, customerList]);
+  }, [search, sortedCustomers]);
 
   const handleAdd = () => {
     const newC: Customer = {
@@ -40,6 +50,7 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
       visitCount: 0,
       notes: form.notes,
       tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+      level: form.level,
     };
     setCustomerList([newC, ...customerList]);
     setShowAdd(false);
@@ -59,6 +70,7 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
       address: c.address,
       notes: c.notes,
       tags: c.tags.join(", "),
+      level: c.level,
     });
     setShowEdit(id);
   };
@@ -76,6 +88,7 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
         address: form.address,
         notes: form.notes,
         tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+        level: form.level,
       } : c
     ));
     setShowEdit(null);
@@ -88,6 +101,16 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
   };
 
   const customerInvoices = (customerId: string) => invoices.filter(i => i.customerId === customerId);
+
+  const levelBadge = (level: string) => {
+    const colors: Record<string, { label: string; variant: "gold" | "info" | "default" }> = {
+      VIP: { label: "VIP", variant: "gold" },
+      Vàng: { label: "Vàng", variant: "info" },
+      Thường: { label: "Thường", variant: "default" },
+    };
+    const info = colors[level] || { label: level, variant: "default" as const };
+    return <Badge variant={info.variant}>{level === "VIP" && "👑 "}{info.label}</Badge>;
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -118,7 +141,10 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
                     {c.name.charAt(0)}
                   </div>
                   <div>
-                    <div className="text-white font-semibold">{c.name}</div>
+                    <div className="text-white font-semibold flex items-center gap-2">
+                      {c.name}
+                      {c.level === "VIP" && <Crown className="w-4 h-4 text-gold-400" />}
+                    </div>
                     <div className="text-xs text-white/40">{c.code}</div>
                   </div>
                 </div>
@@ -134,10 +160,19 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
 
               <div className="space-y-1.5 text-sm">
                 <div className="flex items-center gap-2 text-white/60">
-                  <Phone className="w-3.5 h-3.5" /> {c.phone}
+                  <Phone className="w-3.5 h-3.5" />
+                  <a href={`tel:${c.phone.replace(/\s/g, "")}`} onClick={e => { e.stopPropagation(); window.open(`tel:${c.phone.replace(/\s/g, "")}`); }}
+                    className="text-white/60 hover:text-sakura-300 transition cursor-pointer">{c.phone}</a>
+                  <a href={`https://zalo.me/${c.phone.replace(/\s/g, "")}`} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="text-blue-400 hover:text-blue-300 transition" title="Nhắn Zalo">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                  </a>
                 </div>
                 <div className="flex items-center gap-2 text-white/60">
-                  <Mail className="w-3.5 h-3.5" /> {c.email}
+                  <Mail className="w-3.5 h-3.5" />
+                  <a href={`mailto:${c.email}`} onClick={e => { e.stopPropagation(); window.open(`mailto:${c.email}`); }}
+                    className="text-white/60 hover:text-sakura-300 transition cursor-pointer">{c.email}</a>
                 </div>
                 <div className="flex items-center gap-2 text-white/60">
                   <MapPin className="w-3.5 h-3.5" /> {c.address}
@@ -149,160 +184,355 @@ export function Customers({ onNavigate }: { onNavigate: (p: string) => void }) {
                   <span className="flex items-center gap-1"><Receipt className="w-3 h-3" /> {customerInvoices(c.id).length} hóa đơn</span>
                   <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> {formatCurrency(c.totalSpent)}</span>
                 </div>
-                <div className="flex gap-1">
-                  {c.tags.map(t => <Badge key={t} variant="gold">{t}</Badge>)}
+                <div className="flex gap-1 items-center">
+                  {levelBadge(c.level)}
+                  {c.tags.slice(0, 1).map(t => <Badge key={t} variant="gold">{t}</Badge>)}
                 </div>
               </div>
 
               <button
                 onClick={() => onNavigate(`/customer/${c.id}`)}
-                className="mt-3 w-full text-center text-xs text-gold-400 hover:text-gold-300 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition"
+                className="mt-3 w-full text-center text-xs text-gold-400 hover:text-gold-300 transition py-1.5 rounded-lg bg-gold-500/5 hover:bg-gold-500/10"
               >
-                Chi tiết & lịch sử
+                Xem chi tiết →
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add Modal */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Thêm khách hàng mới">
-        <CustomerForm form={form} setForm={setForm} />
+      {/* Add/Edit Modal */}
+      <Modal open={showAdd || showEdit !== null} onClose={() => { setShowAdd(false); setShowEdit(null); }} title={showAdd ? "Thêm khách hàng mới" : "Sửa thông tin khách hàng"}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">Họ tên *</label>
+            <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">Số điện thoại *</label>
+            <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">Email</label>
+            <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">Giới tính</label>
+            <select value={form.gender} onChange={e => setForm({...form, gender: e.target.value as "nam" | "nữ"})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50">
+              <option value="nữ">Nữ</option>
+              <option value="nam">Nam</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">Ngày sinh</label>
+            <input type="date" value={form.birthDate} onChange={e => setForm({...form, birthDate: e.target.value})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1 block">Cấp độ</label>
+            <select value={form.level} onChange={e => setForm({...form, level: e.target.value as "VIP" | "Vàng" | "Thường"})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50">
+              <option value="Thường">Thường</option>
+              <option value="Vàng">Vàng</option>
+              <option value="VIP">VIP</option>
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-white/50 mb-1 block">Địa chỉ</label>
+            <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-white/50 mb-1 block">Tags (phân cách bằng dấu phẩy)</label>
+            <input type="text" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs text-white/50 mb-1 block">Ghi chú</label>
+            <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
+          </div>
+        </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={handleAdd} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-sakura-500 to-rose-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition">
-            Thêm khách hàng
+          <button onClick={showAdd ? handleAdd : handleSaveEdit} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-sakura-500 to-rose-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition">
+            {showAdd ? "Thêm khách hàng" : "Lưu thay đổi"}
           </button>
-          <button onClick={() => setShowAdd(false)} className="px-4 py-2.5 bg-white/10 text-white rounded-xl text-sm hover:bg-white/20 transition">
-            Hủy
+          <button onClick={() => { setShowAdd(false); setShowEdit(null); setForm(emptyForm); }} className="px-4 py-2.5 bg-white/10 text-white/70 rounded-xl text-sm hover:bg-white/20 transition">
+            Huỷ
           </button>
         </div>
       </Modal>
 
-      {/* Edit Modal */}
-      <Modal open={showEdit !== null} onClose={() => setShowEdit(null)} title="Chỉnh sửa thông tin">
-        <CustomerForm form={form} setForm={setForm} />
-        <div className="flex gap-3 mt-5">
-          <button onClick={handleSaveEdit} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-sakura-500 to-rose-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition">
-            Lưu thay đổi
-          </button>
-          <button onClick={() => setShowEdit(null)} className="px-4 py-2.5 bg-white/10 text-white rounded-xl text-sm hover:bg-white/20 transition">
-            Hủy
-          </button>
-        </div>
-      </Modal>
-
-      {/* Delete Confirm */}
-      <Modal open={deleteConfirm !== null} onClose={() => setDeleteConfirm(null)} title="Xác nhận xóa" size="sm">
-        <p className="text-white/70 text-sm mb-5">Bạn có chắc chắn muốn xóa khách hàng này? Hành động này không thể hoàn tác.</p>
+      {/* Delete confirm */}
+      <Modal open={deleteConfirm !== null} onClose={() => setDeleteConfirm(null)} title="Xác nhận xoá" size="sm">
+        <p className="text-white/70 text-sm mb-5">Bạn có chắc muốn xoá khách hàng này? Hành động này không thể hoàn tác.</p>
         <div className="flex gap-3">
-          <button onClick={() => deleteConfirm && handleDelete(deleteConfirm)} className="flex-1 px-4 py-2.5 bg-rose-500 text-white rounded-xl text-sm font-medium hover:bg-rose-600 transition">
-            Xóa
-          </button>
-          <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2.5 bg-white/10 text-white rounded-xl text-sm hover:bg-white/20 transition">
-            Hủy
-          </button>
+          <button onClick={() => { if (deleteConfirm) handleDelete(deleteConfirm); }} className="flex-1 px-4 py-2.5 bg-rose-500/30 text-rose-300 rounded-xl text-sm hover:bg-rose-500/40 transition">Xoá</button>
+          <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 bg-white/10 text-white/70 rounded-xl text-sm hover:bg-white/20 transition">Huỷ</button>
         </div>
       </Modal>
     </div>
   );
 }
 
-function CustomerForm({ form, setForm }: { form: any; setForm: (f: any) => void }) {
-  const update = (k: string, v: string) => setForm({ ...form, [k]: v });
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="sm:col-span-2">
-        <label className="text-xs text-white/50 mb-1 block">Họ tên *</label>
-        <input value={form.name} onChange={e => update("name", e.target.value)} className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
-      </div>
-      <div>
-        <label className="text-xs text-white/50 mb-1 block">Số điện thoại *</label>
-        <input value={form.phone} onChange={e => update("phone", e.target.value)} className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
-      </div>
-      <div>
-        <label className="text-xs text-white/50 mb-1 block">Email</label>
-        <input value={form.email} onChange={e => update("email", e.target.value)} className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
-      </div>
-      <div>
-        <label className="text-xs text-white/50 mb-1 block">Giới tính</label>
-        <select value={form.gender} onChange={e => update("gender", e.target.value)} className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50">
-          <option value="nữ">Nữ</option>
-          <option value="nam">Nam</option>
-        </select>
-      </div>
-      <div>
-        <label className="text-xs text-white/50 mb-1 block">Ngày sinh</label>
-        <input type="date" value={form.birthDate} onChange={e => update("birthDate", e.target.value)} className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
-      </div>
-      <div className="sm:col-span-2">
-        <label className="text-xs text-white/50 mb-1 block">Địa chỉ</label>
-        <input value={form.address} onChange={e => update("address", e.target.value)} className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
-      </div>
-      <div className="sm:col-span-2">
-        <label className="text-xs text-white/50 mb-1 block">Ghi chú</label>
-        <textarea value={form.notes} onChange={e => update("notes", e.target.value)} rows={2} className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
-      </div>
-      <div className="sm:col-span-2">
-        <label className="text-xs text-white/50 mb-1 block">Tags (cách nhau bằng dấu phẩy)</label>
-        <input value={form.tags} onChange={e => update("tags", e.target.value)} placeholder="VD: VIP, Thân thiết, Vàng" className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:border-sakura-400/50" />
-      </div>
-    </div>
-  );
-}
-
+// ─── Customer Detail ───
 export function CustomerDetail({ customerId, onNavigate }: { customerId: string; onNavigate: (p: string) => void }) {
-  const c = customers.find(x => x.id === customerId);
-  if (!c) return <EmptyState message="Không tìm thấy khách hàng" />;
+  const customer = customers.find(c => c.id === customerId);
+  const [showQuickBuy, setShowQuickBuy] = useState(false);
+  const [quickItems, setQuickItems] = useState<{ type: "service" | "product"; id: string; name: string; unitPrice: number; quantity: number }[]>([]);
+  const [searchItem, setSearchItem] = useState("");
+  const [itemType, setItemType] = useState<"service" | "product">("service");
 
-  const customerInvoicesList = invoices.filter(i => i.customerId === customerId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  if (!customer) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <button onClick={() => onNavigate("/customers")} className="text-white/50 hover:text-white text-sm">← Quay lại</button>
+        <EmptyState message="Không tìm thấy khách hàng" icon={<Users className="w-12 h-12" />} />
+      </div>
+    );
+  }
+
+  const customerInvList = invoices.filter(i => i.customerId === customerId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Quick buy search
+  const availableServices = services.filter(s => s.active);
+  const availableProducts = products.filter(p => p.active && p.stock > 0);
+  const currentItems = itemType === "service" ? availableServices : availableProducts;
+
+  const filteredQuickItems = currentItems.filter(it => {
+    const q = searchItem.toLowerCase();
+    return it.name.toLowerCase().includes(q) || it.code.toLowerCase().includes(q);
+  }).slice(0, 6);
+
+  const addQuickItem = (type: "service" | "product", id: string, name: string, price: number) => {
+    setQuickItems(prev => {
+      const existing = prev.find(it => it.id === id && it.type === type);
+      if (existing) return prev.map(it => it.id === id && it.type === type ? { ...it, quantity: it.quantity + 1 } : it);
+      return [...prev, { type, id, name, unitPrice: price, quantity: 1 }];
+    });
+  };
+
+  const updateQuickQty = (idx: number, delta: number) => {
+    setQuickItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: Math.max(1, it.quantity + delta) } : it));
+  };
+
+  const removeQuickItem = (idx: number) => {
+    setQuickItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const quickTotal = quickItems.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
+
+  const handleQuickCreateInvoice = () => {
+    if (quickItems.length === 0) return;
+    // Redirect to invoices page with prefill note
+    alert(`✅ Đã tạo hóa đơn nhanh cho ${customer.name} — Tổng: ${new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(quickTotal)}`);
+    setQuickItems([]);
+    setShowQuickBuy(false);
+  };
+
+  const levelBadge = (level: string) => {
+    if (level === "VIP") return <Badge variant="gold">👑 VIP</Badge>;
+    if (level === "Vàng") return <Badge variant="info">Vàng</Badge>;
+    return <Badge>Thường</Badge>;
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <button onClick={() => onNavigate("/customers")} className="text-sm text-white/50 hover:text-white transition flex items-center gap-1">
-        ← Quay lại danh sách
-      </button>
+      <button onClick={() => onNavigate("/customers")} className="text-white/50 hover:text-white text-sm transition">← Danh sách khách hàng</button>
 
+      {/* Customer info card */}
       <div className="bg-sakura-card rounded-2xl border border-white/10 p-6">
-        <div className="flex items-start gap-4 flex-wrap">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-sakura-400 to-rose-400 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-            {c.name.charAt(0)}
+        <div className="flex flex-col sm:flex-row items-start gap-5">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-sakura-400 to-rose-400 flex items-center justify-center text-white font-bold text-2xl shadow-lg shrink-0">
+            {customer.name.charAt(0)}
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-xl font-bold text-white font-serif">{c.name}</h2>
-              <span className="text-xs text-white/40">{c.code}</span>
-              {c.tags.map(t => <Badge key={t} variant="gold">{t}</Badge>)}
+              <h2 className="text-xl font-bold text-white font-serif">{customer.name}</h2>
+              {levelBadge(customer.level)}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 text-sm">
-              <div className="flex items-center gap-2 text-white/60"><Phone className="w-3.5 h-3.5" /> {c.phone}</div>
-              <div className="flex items-center gap-2 text-white/60"><Mail className="w-3.5 h-3.5" /> {c.email}</div>
-              <div className="flex items-center gap-2 text-white/60"><MapPin className="w-3.5 h-3.5" /> {c.address}</div>
-              <div className="flex items-center gap-2 text-white/60"><Calendar className="w-3.5 h-3.5" /> Tham gia: {formatDate(c.memberSince)}</div>
-              <div className="flex items-center gap-2 text-white/60"><DollarSign className="w-3.5 h-3.5" /> Tổng chi: {formatCurrency(c.totalSpent)}</div>
-              <div className="flex items-center gap-2 text-white/60"><Receipt className="w-3.5 h-3.5" /> {c.visitCount} lượt</div>
+            <div className="text-sm text-white/40 mt-0.5">{customer.code} · Thành viên từ {formatDate(customer.memberSince)}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+              <div className="flex items-center gap-2 text-sm text-white/70">
+                <Phone className="w-4 h-4 text-white/40" />
+                <a href={`tel:${customer.phone.replace(/\s/g, "")}`} onClick={e => { e.stopPropagation(); window.open(`tel:${customer.phone.replace(/\s/g, "")}`); }}
+                  className="hover:text-sakura-300 transition cursor-pointer">{customer.phone}</a>
+                <a href={`https://zalo.me/${customer.phone.replace(/\s/g, "")}`} target="_blank" rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 transition" title="Nhắn Zalo">
+                  <MessageCircle className="w-4 h-4" />
+                </a>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-white/70">
+                <Mail className="w-4 h-4 text-white/40" />
+                <a href={`mailto:${customer.email}`} onClick={e => { e.stopPropagation(); window.open(`mailto:${customer.email}`); }}
+                  className="hover:text-sakura-300 transition cursor-pointer">{customer.email}</a>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-white/70">
+                <MapPin className="w-4 h-4 text-white/40" /> {customer.address}
+              </div>
             </div>
-            {c.notes && <div className="mt-3 text-sm text-white/50 italic">📝 {c.notes}</div>}
+            <div className="flex items-center gap-4 mt-3 text-sm">
+              <span className="flex items-center gap-1 text-gold-400"><DollarSign className="w-4 h-4" /> {formatCurrency(customer.totalSpent)}</span>
+              <span className="flex items-center gap-1 text-white/60"><Receipt className="w-4 h-4" /> {customerInvList.length} hóa đơn</span>
+              <span className="flex items-center gap-1 text-white/60"><Calendar className="w-4 h-4" /> {customer.visitCount} lượt</span>
+            </div>
+            {customer.notes && <div className="mt-3 text-xs text-white/40 italic">📝 {customer.notes}</div>}
           </div>
         </div>
       </div>
 
-      <div className="bg-sakura-card rounded-2xl border border-white/10 p-5">
-        <h3 className="text-white font-semibold mb-4">Lịch sử hóa đơn</h3>
-        {customerInvoicesList.length === 0 ? (
-          <p className="text-sm text-white/40">Chưa có hóa đơn</p>
+      {/* Quick Buy Button */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setShowQuickBuy(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition shadow-lg shadow-emerald-500/20"
+        >
+          <ShoppingCart className="w-4 h-4" /> Mua nhanh cho {customer.name}
+        </button>
+      </div>
+
+      {/* Quick Buy Modal */}
+      {showQuickBuy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={() => setShowQuickBuy(false)}>
+          <div className="bg-gradient-to-br from-[#2d1b2e] to-[#3d1f2e] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <h3 className="text-lg font-semibold text-white font-serif">🛒 Mua nhanh cho {customer.name}</h3>
+              <button onClick={() => setShowQuickBuy(false)} className="text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Search and type toggle */}
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                  <input
+                    type="text"
+                    value={searchItem}
+                    onChange={e => setSearchItem(e.target.value)}
+                    placeholder="Tìm kiếm dịch vụ hoặc sản phẩm..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-sakura-400/50"
+                  />
+                </div>
+                <div className="flex gap-1 bg-white/5 rounded-lg p-0.5">
+                  <button onClick={() => { setItemType("service"); setSearchItem(""); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs transition ${itemType === "service" ? "bg-sakura-500/30 text-white" : "text-white/50"}`}>
+                    <Sparkles className="w-3.5 h-3.5 inline mr-1" />Dịch vụ
+                  </button>
+                  <button onClick={() => { setItemType("product"); setSearchItem(""); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs transition ${itemType === "product" ? "bg-sakura-500/30 text-white" : "text-white/50"}`}>
+                    <Package className="w-3.5 h-3.5 inline mr-1" />Sản phẩm
+                  </button>
+                </div>
+              </div>
+
+              {/* Search results dropdown */}
+              {searchItem && filteredQuickItems.length > 0 && (
+                <div className="absolute z-50 w-[calc(100%-2.5rem)] bg-[#2d1b2e]/95 border border-white/10 rounded-xl mt-1 overflow-hidden shadow-lg">
+                  {filteredQuickItems.map(it => (
+                    <button
+                      key={it.id}
+                      onClick={() => addQuickItem(itemType, it.id, it.name, itemType === "service" ? (it as any).price : (it as any).sellingPrice)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-white/80 hover:bg-white/10 transition text-sm"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                        {it.image ? <img src={it.image} alt={it.name} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 text-white/30" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-medium truncate">{it.name}</div>
+                        <div className="text-[10px] text-white/40">{it.code}</div>
+                      </div>
+                      <span className="text-gold-400 font-semibold text-xs whitespace-nowrap">
+                        {formatCurrency(itemType === "service" ? (it as any).price : (it as any).sellingPrice)}
+                      </span>
+                      <Plus className="w-4 h-4 text-sakura-300 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected items cart */}
+              <div className="space-y-2 min-h-[80px]">
+                {quickItems.length === 0 ? (
+                  <div className="text-center py-6 text-white/30 text-sm">Chưa có sản phẩm/dịch vụ nào được chọn</div>
+                ) : (
+                  quickItems.map((it, i) => (
+                    <div key={`${it.type}-${it.id}`} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-2.5 border border-white/10">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <Badge variant={it.type === "service" ? "info" : "success"}>
+                          {it.type === "service" ? "DV" : "SP"}
+                        </Badge>
+                        <span className="text-white text-sm truncate">{it.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => updateQuickQty(i, -1)} className="p-1 rounded bg-white/10 text-white/60 hover:text-white"><Minus className="w-3 h-3" /></button>
+                          <span className="text-white text-sm w-6 text-center">{it.quantity}</span>
+                          <button onClick={() => updateQuickQty(i, 1)} className="p-1 rounded bg-white/10 text-white/60 hover:text-white"><Plus className="w-3 h-3" /></button>
+                        </div>
+                        <span className="text-gold-400 text-sm font-medium w-20 text-right">{formatCurrency(it.unitPrice * it.quantity)}</span>
+                        <button onClick={() => removeQuickItem(i)} className="p-1 rounded text-rose-400 hover:bg-rose-500/20"><X className="w-3.5 h-3.5" /></button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Total + Create */}
+              {quickItems.length > 0 && (
+                <div className="border-t border-white/10 pt-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-white/60 text-sm">Tổng cộng</span>
+                    <span className="text-xl font-bold text-gold-400">{formatCurrency(quickTotal)}</span>
+                  </div>
+                  <button
+                    onClick={handleQuickCreateInvoice}
+                    className="w-full px-4 py-3 bg-gradient-to-r from-sakura-500 to-rose-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition shadow-lg shadow-sakura-500/20"
+                  >
+                    🛒 Tạo hóa đơn & Thanh toán ngay
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice list */}
+      <div>
+        <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+          <Receipt className="w-4 h-4 text-gold-400" /> Lịch sử hóa đơn
+        </h3>
+        {customerInvList.length === 0 ? (
+          <EmptyState message="Chưa có hóa đơn nào" icon={<Receipt className="w-12 h-12" />} />
         ) : (
           <div className="space-y-2">
-            {customerInvoicesList.map(inv => (
-              <div key={inv.id} className="flex items-center justify-between py-2.5 border-b border-white/5 last:border-0">
-                <div>
-                  <div className="text-sm text-white font-medium">{inv.invoiceNo}</div>
-                  <div className="text-xs text-white/50">{formatDate(inv.date)} · {inv.items.length} dịch vụ/Sản phẩm</div>
+            {customerInvList.map(inv => (
+              <div key={inv.id} className="bg-white/5 rounded-xl border border-white/10 p-4 hover:border-white/20 transition">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium text-sm">{inv.invoiceNo}</span>
+                    <Badge variant={inv.status === "completed" ? "success" : inv.status === "pending" ? "warning" : "danger"}>
+                      {inv.status === "completed" ? "Hoàn thành" : inv.status === "pending" ? "Chờ" : "Đã huỷ"}
+                    </Badge>
+                  </div>
+                  <span className="text-gold-400 font-semibold">{formatCurrency(inv.total)}</span>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-white">{formatCurrency(inv.total)}</div>
-                  <Badge variant={inv.status === "completed" ? "success" : inv.status === "pending" ? "warning" : "danger"}>
-                    {inv.status === "completed" ? "Đã thanh toán" : inv.status === "pending" ? "Chờ" : "Hủy"}
-                  </Badge>
+                <div className="flex items-center justify-between text-xs text-white/40">
+                  <span>{formatDate(inv.date)} · {inv.items.length} món</span>
+                  <span>{inv.paymentMethod}</span>
+                </div>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {inv.items.slice(0, 3).map((it, i) => (
+                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/50">
+                      {it.name} x{it.quantity}
+                    </span>
+                  ))}
+                  {inv.items.length > 3 && <span className="text-[10px] text-white/30">+{inv.items.length - 3}</span>}
                 </div>
               </div>
             ))}

@@ -12,6 +12,24 @@ export interface Customer {
   visitCount: number;
   notes: string;
   tags: string[];
+  level: 'VIP' | 'Vàng' | 'Thường';
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  image: string;
+}
+
+export interface ServiceCategory {
+  id: string;
+  name: string;
+  image: string;
+}
+
+export interface SettingsData {
+  productCategories: ProductCategory[];
+  serviceCategories: ServiceCategory[];
 }
 
 export interface Service {
@@ -106,6 +124,8 @@ export const siteConfig = {
     { label: "Hóa đơn", href: "/invoices", icon: "FileText" },
     { label: "Kho hàng", href: "/inventory", icon: "Warehouse" },
     { label: "Báo cáo", href: "/reports", icon: "BarChart3" },
+    { label: "In nhãn", href: "/labels", icon: "Printer" },
+    { label: "Cài đặt", href: "/settings", icon: "Settings2" },
   ],
 };
 
@@ -132,13 +152,28 @@ export const products: Product[] = [
 ];
 
 export const customers: Customer[] = [
-  { id: "c1", code: "KH001", name: "Nguyễn Thị Hương", phone: "0901 234 567", email: "huong.nguyen@email.com", gender: "nữ", birthDate: "1990-05-15", address: "12 Lê Lợi, Q.1, TP.HCM", memberSince: "2024-01-10", totalSpent: 5800000, visitCount: 12, notes: "Khách VIP, thích massage đá nóng", tags: ["VIP", "Thân thiết"] },
-  { id: "c2", code: "KH002", name: "Trần Thị Minh Anh", phone: "0902 345 678", email: "minhanh@email.com", gender: "nữ", birthDate: "1995-08-22", address: "45 Nguyễn Văn Cừ, Q.5, TP.HCM", memberSince: "2024-03-15", totalSpent: 3200000, visitCount: 8, notes: "Dị ứng tinh dầu oải hương", tags: ["Thường xuyên"] },
-  { id: "c3", code: "KH003", name: "Lê Thị Phương", phone: "0903 456 789", email: "phuong.le@email.com", gender: "nữ", birthDate: "1988-11-30", address: "78 Hai Bà Trưng, Q.3, TP.HCM", memberSince: "2024-02-20", totalSpent: 7500000, visitCount: 15, notes: "Khách hàng thân thiết nhất", tags: ["VIP", "Vàng"] },
-  { id: "c4", code: "KH004", name: "Phạm Thị Thu Hà", phone: "0904 567 890", email: "thuha@email.com", gender: "nữ", birthDate: "1992-03-10", address: "23 Bùi Thị Xuân, Q.1, TP.HCM", memberSince: "2024-04-05", totalSpent: 1800000, visitCount: 5, notes: "Thích trị mụn", tags: [] },
-  { id: "c5", code: "KH005", name: "Võ Thị Kim Ngân", phone: "0905 678 901", email: "kimngan@email.com", gender: "nữ", birthDate: "2000-07-18", address: "56 Cách Mạng Tháng 8, Q.10, TP.HCM", memberSince: "2024-05-20", totalSpent: 4200000, visitCount: 9, notes: "Sinh viên, thích gội đầu dưỡng sinh", tags: ["Trẻ"] },
-  { id: "c6", code: "KH006", name: "Đặng Thị Mỹ Linh", phone: "0906 789 012", email: "mylinh@email.com", gender: "nữ", birthDate: "1985-12-25", address: "90 Nguyễn Đình Chiểu, Q.3, TP.HCM", memberSince: "2024-01-05", totalSpent: 9200000, visitCount: 20, notes: "Khách hàng lâu năm, thường xuyên mua SP", tags: ["VIP", "Vàng", "Thân thiết"] },
+  { id: "c1", code: "KH001", name: "Nguyễn Thị Hương", phone: "0901 234 567", email: "huong.nguyen@email.com", gender: "nữ", birthDate: "1990-05-15", address: "12 Lê Lợi, Q.1, TP.HCM", memberSince: "2024-01-10", totalSpent: 5800000, visitCount: 12, notes: "Khách VIP, thích massage đá nóng", tags: ["VIP", "Thân thiết"], level: "VIP" },
+  { id: "c2", code: "KH002", name: "Trần Thị Minh Anh", phone: "0902 345 678", email: "minhanh@email.com", gender: "nữ", birthDate: "1995-08-22", address: "45 Nguyễn Văn Cừ, Q.5, TP.HCM", memberSince: "2024-03-15", totalSpent: 3200000, visitCount: 8, notes: "Dị ứng tinh dầu oải hương", tags: ["Thường xuyên"], level: "Vàng" },
+  { id: "c3", code: "KH003", name: "Lê Thị Phương", phone: "0903 456 789", email: "phuong.le@email.com", gender: "nữ", birthDate: "1988-11-30", address: "78 Hai Bà Trưng, Q.3, TP.HCM", memberSince: "2024-02-20", totalSpent: 7500000, visitCount: 15, notes: "Khách hàng thân thiết nhất", tags: ["VIP", "Vàng"], level: "VIP" },
+  { id: "c4", code: "KH004", name: "Phạm Thị Thu Hà", phone: "0904 567 890", email: "thuha@email.com", gender: "nữ", birthDate: "1992-03-10", address: "23 Bùi Thị Xuân, Q.1, TP.HCM", memberSince: "2024-04-05", totalSpent: 1800000, visitCount: 5, notes: "Thích trị mụn", tags: [], level: "Thường" },
+  { id: "c5", code: "KH005", name: "Võ Thị Kim Ngân", phone: "0905 678 901", email: "kimngan@email.com", gender: "nữ", birthDate: "2000-07-18", address: "56 Cách Mạng Tháng 8, Q.10, TP.HCM", memberSince: "2024-05-20", totalSpent: 4200000, visitCount: 9, notes: "Sinh viên, thích gội đầu dưỡng sinh", tags: ["Trẻ"], level: "Vàng" },
+  { id: "c6", code: "KH006", name: "Đặng Thị Mỹ Linh", phone: "0906 789 012", email: "mylinh@email.com", gender: "nữ", birthDate: "1985-12-25", address: "90 Nguyễn Đình Chiểu, Q.3, TP.HCM", memberSince: "2024-01-05", totalSpent: 9200000, visitCount: 20, notes: "Khách hàng lâu năm, thường xuyên mua SP", tags: ["VIP", "Vàng", "Thân thiết"], level: "VIP" },
 ];
+
+export const defaultSettings: SettingsData = {
+  productCategories: [
+    { id: "pc1", name: "Skincare", image: "https://images.unsplash.com/photo-1570194065650-d99fb4ee8e39?w=200&q=80" },
+    { id: "pc2", name: "Tinh dầu", image: "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=200&q=80" },
+    { id: "pc3", name: "Quà tặng", image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=200&q=80" },
+  ],
+  serviceCategories: [
+    { id: "sc1", name: "Massage", image: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=200&q=80" },
+    { id: "sc2", name: "Chăm sóc da", image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=200&q=80" },
+    { id: "sc3", name: "Gội đầu", image: "https://images.unsplash.com/photo-1560750588-73207b1ef5b8?w=200&q=80" },
+    { id: "sc4", name: "Tắm trắng", image: "https://images.unsplash.com/photo-1590439471364-192aa70c0b53?w=200&q=80" },
+    { id: "sc5", name: "Trị liệu", image: "https://images.unsplash.com/photo-1540555700478-4be289fbec6d?w=200&q=80" },
+  ],
+};
 
 export const invoices: Invoice[] = [
   {
