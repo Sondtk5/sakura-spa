@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { products } from "../data/site";
 import type { Product } from "../data/site";
 import { SearchInput, Modal, EmptyState, Badge, generateId, formatCurrency } from "../components/Shared";
-import { Package, Plus, Edit3, Search, Barcode, Tag, AlertTriangle, Percent, DollarSign } from "lucide-react";
+import { Package, Plus, Edit3, Search, Barcode, Tag, AlertTriangle, Percent, DollarSign, Eye, EyeOff } from "lucide-react";
 
 export function Products({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [search, setSearch] = useState("");
@@ -11,6 +11,7 @@ export function Products({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showCostPrice, setShowCostPrice] = useState(false);
 
   const emptyForm = { code: "", barcode: "", name: "", category: "Skincare", description: "", costPrice: 0, sellingPrice: 0, originalPrice: 0, stock: 0, minStock: 0, discount: 0 };
   const [form, setForm] = useState(emptyForm);
@@ -90,8 +91,19 @@ export function Products({ onNavigate }: { onNavigate: (p: string) => void }) {
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Tìm theo tên, mã SP, barcode..." />
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex-1 w-full">
+          <SearchInput value={search} onChange={setSearch} placeholder="Tìm theo tên, mã SP, barcode..." />
+        </div>
+        <button
+          onClick={() => setShowCostPrice(!showCostPrice)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs transition ${
+            showCostPrice ? "bg-sakura-500/30 text-white border border-sakura-500/30" : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10"
+          }`}
+        >
+          {showCostPrice ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          {showCostPrice ? "Ẩn giá nhập" : "Hiện giá nhập"}
+        </button>
         <div className="flex gap-2 flex-wrap">
           <button onClick={() => setFilterCat("all")} className={`px-3 py-2 rounded-xl text-sm transition ${filterCat === "all" ? "bg-sakura-500/30 text-white border border-sakura-500/30" : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10"}`}>Tất cả</button>
           {categories.map(cat => (
@@ -155,6 +167,12 @@ export function Products({ onNavigate }: { onNavigate: (p: string) => void }) {
                     </span>
                     <span className="text-white/40">Giá gốc: {formatCurrency(p.originalPrice)}</span>
                   </div>
+                  {showCostPrice && (
+                    <div className="mt-1.5 pt-1.5 border-t border-white/10 flex items-center justify-between text-xs">
+                      <span className="text-white/40">Giá nhập:</span>
+                      <span className="text-emerald-300 font-medium">{formatCurrency(p.costPrice)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );

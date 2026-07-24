@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { products, inventoryTransactions } from "../data/site";
 import type { InventoryTransaction } from "../data/site";
 import { SearchInput, Modal, Badge, EmptyState, generateId, formatCurrency, formatDate } from "../components/Shared";
-import { Warehouse, Plus, Search, ArrowDown, ArrowUp, ClipboardList, AlertTriangle, Package } from "lucide-react";
+import { Warehouse, Plus, Search, ArrowDown, ArrowUp, ClipboardList, AlertTriangle, Package, List, Grid3X3 } from "lucide-react";
 
 export function Inventory({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [search, setSearch] = useState("");
@@ -10,6 +10,7 @@ export function Inventory({ onNavigate }: { onNavigate: (p: string) => void }) {
   const [showAdd, setShowAdd] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "inbound" | "outbound">("all");
   const [form, setForm] = useState({ productId: "", type: "inbound" as "inbound" | "outbound", quantity: 1, note: "" });
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const productList = useMemo(() => products.filter(p => p.active), []);
 
@@ -94,27 +95,86 @@ export function Inventory({ onNavigate }: { onNavigate: (p: string) => void }) {
 
       {/* Stock Overview */}
       <div className="bg-sakura-card rounded-2xl border border-white/10 p-5">
-        <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-          <Package className="w-4 h-4 text-gold-400" /> Tồn kho hiện tại
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {productList.map(p => {
-            const isLow = p.stock <= p.minStock;
-            return (
-              <div key={p.id} className={`rounded-xl p-3 border ${isLow ? "border-rose-500/30 bg-rose-500/5" : "border-white/10 bg-white/5"}`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-white font-medium truncate">{p.name}</span>
-                  <span className="text-xs text-white/40">{p.code}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className={`text-lg font-bold ${isLow ? "text-rose-300" : "text-gold-400"}`}>{p.stock}</span>
-                  <span className="text-xs text-white/40">Min: {p.minStock}</span>
-                </div>
-                {isLow && <div className="mt-1 text-[10px] text-rose-300 flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5" />Sắp hết hàng</div>}
-              </div>
-            );
-          })}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-semibold flex items-center gap-2">
+            <Package className="w-4 h-4 text-gold-400" /> Tồn kho hiện tại
+          </h3>
+          <div className="flex gap-1 bg-white/5 rounded-lg p-0.5">
+            <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition ${viewMode === "grid" ? "bg-sakura-500/30 text-white" : "text-white/40 hover:text-white"}`}>
+              <Grid3X3 className="w-4 h-4" />
+            </button>
+            <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition ${viewMode === "list" ? "bg-sakura-500/30 text-white" : "text-white/40 hover:text-white"}`}>
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+
+        {viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {productList.map(p => {
+              const isLow = p.stock <= p.minStock;
+              return (
+                <div key={p.id} className={`rounded-xl p-3 border ${isLow ? "border-rose-500/30 bg-rose-500/5" : "border-white/10 bg-white/5"}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-white font-medium truncate">{p.name}</span>
+                    <span className="text-xs text-white/40">{p.code}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-lg font-bold ${isLow ? "text-rose-300" : "text-gold-400"}`}>{p.stock}</span>
+                    <span className="text-xs text-white/40">Min: {p.minStock}</span>
+                  </div>
+                  {isLow && <div className="mt-1 text-[10px] text-rose-300 flex items-center gap-1"><AlertTriangle className="w-2.5 h-2.5" />Sắp hết hàng</div>}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-white/10">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-white/5 border-b border-white/10">
+                  <th className="text-left px-4 py-3 text-white/50 font-medium">Mã SP</th>
+                  <th className="text-left px-4 py-3 text-white/50 font-medium">Tên sản phẩm</th>
+                  <th className="text-left px-4 py-3 text-white/50 font-medium">Danh mục</th>
+                  <th className="text-right px-4 py-3 text-white/50 font-medium">Giá nhập</th>
+                  <th className="text-right px-4 py-3 text-white/50 font-medium">Giá bán</th>
+                  <th className="text-right px-4 py-3 text-white/50 font-medium">Giá gốc</th>
+                  <th className="text-right px-4 py-3 text-white/50 font-medium">Tồn kho</th>
+                  <th className="text-right px-4 py-3 text-white/50 font-medium">Tồn tối thiểu</th>
+                  <th className="text-right px-4 py-3 text-white/50 font-medium">Giảm giá</th>
+                  <th className="text-center px-4 py-3 text-white/50 font-medium">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {productList.map(p => {
+                  const isLow = p.stock <= p.minStock;
+                  return (
+                    <tr key={p.id} className="hover:bg-white/5 transition">
+                      <td className="px-4 py-3 text-white/60 text-xs">{p.code}</td>
+                      <td className="px-4 py-3 text-white font-medium">{p.name}</td>
+                      <td className="px-4 py-3 text-white/60">{p.category}</td>
+                      <td className="px-4 py-3 text-right text-emerald-300">{formatCurrency(p.costPrice)}</td>
+                      <td className="px-4 py-3 text-right text-gold-400 font-medium">{formatCurrency(p.sellingPrice)}</td>
+                      <td className="px-4 py-3 text-right text-white/60">{formatCurrency(p.originalPrice)}</td>
+                      <td className={`px-4 py-3 text-right font-medium ${isLow ? "text-rose-300" : "text-white"}`}>{p.stock}</td>
+                      <td className="px-4 py-3 text-right text-white/50">{p.minStock}</td>
+                      <td className="px-4 py-3 text-right text-rose-300">{p.discount > 0 ? `${p.discount}%` : "-"}</td>
+                      <td className="px-4 py-3 text-center">
+                        {isLow ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-rose-300 bg-rose-500/20 px-2 py-0.5 rounded-full">
+                            <AlertTriangle className="w-2.5 h-2.5" /> Sắp hết
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">Đủ hàng</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Transaction History */}

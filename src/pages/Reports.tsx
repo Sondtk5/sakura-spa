@@ -31,18 +31,41 @@ export function Reports() {
     return { revenue, count, avg };
   }, [filteredInvoices]);
 
-  // Daily chart data (month only)
+  // Daily chart data (month + week)
   const chartData = useMemo(() => {
-    if (period !== "month") return [];
+    if (period === "today") return [];
     const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const days: { day: number; revenue: number }[] = [];
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      const rev = filteredInvoices.filter(i => i.date.startsWith(dateStr)).reduce((s, i) => s + i.total, 0);
-      days.push({ day: d, revenue: rev });
+    if (period === "week") {
+      const days: { label: string; revenue: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+        const rev = filteredInvoices.filter(inv => inv.date.startsWith(dateStr)).reduce((s, inv) => s + inv.total, 0);
+        days.push({ label: d.toLocaleDateString("vi-VN", { weekday: "short" }), revenue: rev });
+      }
+      return days;
     }
-    return days;
+    if (period === "month") {
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const days: { label: string; revenue: number }[] = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const rev = filteredInvoices.filter(i => i.date.startsWith(dateStr)).reduce((s, i) => s + i.total, 0);
+        days.push({ label: String(d), revenue: rev });
+      }
+      return days;
+    }
+    // year
+    const months: { label: string; revenue: number }[] = [];
+    for (let m = 0; m < 12; m++) {
+      const rev = filteredInvoices.filter(i => {
+        const d = new Date(i.date);
+        return d.getMonth() === m;
+      }).reduce((s, i) => s + i.total, 0);
+      months.push({ label: `T${m + 1}`, revenue: rev });
+    }
+    return months;
   }, [filteredInvoices, period]);
 
   const maxRev = Math.max(...chartData.map(d => d.revenue), 1);
@@ -192,7 +215,7 @@ export function Reports() {
                     </div>
                   )}
                 </div>
-                <span className="text-[9px] text-white/40">{d.day}</span>
+                <span className="text-[9px] text-white/40">{d.label}</span>
               </div>
             ))}
           </div>
