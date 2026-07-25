@@ -27,9 +27,46 @@ export interface ServiceCategory {
   image: string;
 }
 
+export interface ReturnExchangeItem {
+  invoiceId: string;
+  invoiceNo: string;
+  itemId: string;
+  itemName: string;
+  type: 'service' | 'product';
+  quantity: number;
+  unitPrice: number;
+  reason: string;
+  date: string;
+}
+
+export interface ReturnExchangeRecord {
+  id: string;
+  invoiceId: string;
+  invoiceNo: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  date: string;
+  items: ReturnExchangeItem[];
+  type: 'return' | 'exchange';
+  note: string;
+}
+
+export interface ShopConfig {
+  shopName: string;
+  slogan: string;
+  logoUrl: string;
+  themeColor: string;
+  footerText: string;
+  defaultGroups: string[];
+  cascadeImage: string;
+}
+
 export interface SettingsData {
   productCategories: ProductCategory[];
   serviceCategories: ServiceCategory[];
+  shopConfig: ShopConfig;
+  returnExchanges: ReturnExchangeRecord[];
 }
 
 export interface Service {
@@ -173,6 +210,16 @@ export const defaultSettings: SettingsData = {
     { id: "sc4", name: "Tắm trắng", image: "https://images.unsplash.com/photo-1590439471364-192aa70c0b53?w=200&q=80" },
     { id: "sc5", name: "Trị liệu", image: "https://images.unsplash.com/photo-1540555700478-4be289fbec6d?w=200&q=80" },
   ],
+  shopConfig: {
+    shopName: "Sakura Spa & Beauty",
+    slogan: "Nâng tầm vẻ đẹp, thư thái tâm hồn",
+    logoUrl: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=200&q=80",
+    themeColor: "sakura",
+    footerText: "© 2026 Sakura Spa & Beauty. Tất cả quyền được bảo lưu.",
+    defaultGroups: ["Skincare", "Massage", "Chăm sóc da"],
+    cascadeImage: "",
+  },
+  returnExchanges: [],
 };
 
 export const invoices: Invoice[] = [

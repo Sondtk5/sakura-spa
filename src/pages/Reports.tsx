@@ -1,9 +1,333 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { invoices, customers, services, products, siteConfig } from "../data/site";
 import type { InvoiceItem } from "../data/site";
 import { formatCurrency, formatDate, Badge } from "../components/Shared";
 import { BarChart3, DollarSign, TrendingUp, ShoppingBag, Sparkles, Users, Printer, Wallet2, EyeOff, LayoutGrid } from "lucide-react";
 
+// ─── Canvas Chart Component ───
+function SimpleBarLineChart({ data, maxRev, type }: { data: { label: string; revenue: number }[]; maxRev: number; type: "bar" | "line" }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; value: number } | null>(null);
+
+  const PADDING = { top: 30, right: 20, bottom: 60, left: 80 };
+  const GRID_COUNT = 5;
+
+  const drawChart = useMemo(() => {
+    return (canvas: HTMLCanvasElement) => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+
+      const w = rect.width;
+      const h = rect.height;
+      const chartW = w - PADDING.left - PADDING.right;
+      const chartH = h - PADDING.top - PADDING.bottom;
+      const n = data.length;
+      if (n === 0) return;
+
+      // Clear
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid lines
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= GRID_COUNT; i++) {
+        const y = PADDING.top + (chartH / GRID_COUNT) * i;
+        ctx.beginPath();
+        ctx.moveTo(PADDING.left, y);
+        ctx.lineTo(w - PADDING.right, y);
+        ctx.stroke();
+      }
+
+      // Y-axis labels
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.font = "11px Inter, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i <= GRID_COUNT; i++) {
+        const val = Math.round((maxRev / GRID_COUNT) * (GRID_COUNT - i));
+        const y = PADDING.top + (chartH / GRID_COUNT) * i;
+        ctx.fillText(formatCurrency(val), PADDING.left - 10, y);
+      }
+
+      // X-axis labels
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.font = "12px Inter, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const labelSkip = n > 31 ? 5 : n > 14 ? 2 : 1;
+      data.forEach((d, i) => {
+        if (i % labelSkip !== 0 && i !== n - 1) return;
+        const x = PADDING.left + (chartW / Math.max(n - 1, 1)) * i;
+        ctx.fillText(d.label, x, PADDING.top + chartH + 10);
+      });
+
+      // Bar width
+      const barWidth = Math.min(chartW / n * 0.7, 40);
+
+      // Gradient helper
+      const createGradient = (x1: number, y1: number, x2: number, y2: number) => {
+        const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+        grad.addColorStop(0, "rgba(212, 168, 83, 0.9)");
+        grad.addColorStop(0.5, "rgba(232, 121, 132, 0.8)");
+        grad.addColorStop(1, "rgba(168, 85, 180, 0.6)");
+        return grad;
+      };
+
+      if (type === "bar") {
+        data.forEach((d, i) => {
+          const barH = maxRev > 0 ? (d.revenue / maxRev) * chartH : 0;
+          const x = PADDING.left + (chartW / n) * i + (chartW / n - barWidth) / 2;
+          const y = PADDING.top + chartH - barH;
+
+          const grad = ctx.createLinearGradient(x, y, x, PADDING.top + chartH);
+          grad.addColorStop(0, "rgba(212, 168, 83, 0.85)");
+          grad.addColorStop(0.4, "rgba(232, 121, 132, 0.65)");
+          grad.addColorStop(1, "rgba(168, 85, 180, 0.3)");
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.roundRect(x, y, barWidth, barH, [4, 4, 0, 0]);
+          ctx.fill();
+
+          // Glow
+          ctx.shadowColor = "rgba(212, 168, 83, 0.2)";
+          ctx.shadowBlur = 8;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        });
+      } else {
+        // Line chart
+        if (n > 1) {
+          ctx.beginPath();
+          ctx.strokeStyle = "#d4a853";
+          ctx.lineWidth = 3;
+          ctx.lineJoin = "round";
+          data.forEach((d, i) => {
+            const x = PADDING.left + (chartW / Math.max(n - 1, 1)) * i;
+            const y = maxRev > 0 ? PADDING.top + chartH - (d.revenue / maxRev) * chartH : PADDING.top + chartH;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+          ctx.stroke();
+
+          // Area fill
+          const lastIdx = n - 1;
+          const lastX = PADDING.left + (chartW / Math.max(n - 1, 1)) * lastIdx;
+          const firstX = PADDING.left;
+          const bottomY = PADDING.top + chartH;
+          ctx.lineTo(lastX, bottomY);
+          ctx.lineTo(firstX, bottomY);
+          ctx.closePath();
+          const grad = ctx.createLinearGradient(0, PADDING.top, 0, PADDING.top + chartH);
+          grad.addColorStop(0, "rgba(212, 168, 83, 0.25)");
+          grad.addColorStop(1, "rgba(212, 168, 83, 0.02)");
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          // Points
+          data.forEach((d, i) => {
+            const x = PADDING.left + (chartW / Math.max(n - 1, 1)) * i;
+            const y = maxRev > 0 ? PADDING.top + chartH - (d.revenue / maxRev) * chartH : PADDING.top + chartH;
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = "#d4a853";
+            ctx.fill();
+            ctx.strokeStyle = "rgba(30, 18, 36, 0.8)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          });
+        }
+      }
+    };
+  }, [data, maxRev, type]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    drawChart(canvas);
+  }, [drawChart]);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas || data.length === 0) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const n = data.length;
+    const chartW = rect.width - PADDING.left - PADDING.right;
+    const chartH = rect.height - PADDING.top - PADDING.bottom;
+
+    for (let i = 0; i < n; i++) {
+      const x = PADDING.left + (chartW / Math.max(n - 1, 1)) * i;
+      const barH = maxRev > 0 ? (data[i].revenue / maxRev) * chartH : 0;
+      const barY = PADDING.top + chartH - barH;
+      const barWidth = Math.min(chartW / n * 0.7, 40);
+      const barX = type === "bar" ? PADDING.left + (chartW / n) * i + (chartW / n - barWidth) / 2 : x;
+      const hitW = type === "bar" ? barWidth : 30;
+      const hitY = type === "bar" ? barY : PADDING.top;
+      const hitH = type === "bar" ? barH : chartH;
+
+      if (mx >= barX - 4 && mx <= barX + hitW + 4) {
+        setTooltip({
+          x: Math.min(barX, rect.width - 180),
+          y: Math.max(barY - 40, 10),
+          label: data[i].label,
+          value: data[i].revenue,
+        });
+        return;
+      }
+    }
+    setTooltip(null);
+  };
+
+  const handleMouseLeave = () => setTooltip(null);
+
+  return (
+    <div className="relative" style={{ width: "100%", height: 280 }}>
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      />
+      {tooltip && (
+        <div
+          className="absolute z-50 bg-[#1e1224]/95 border border-white/20 rounded-xl px-4 py-2.5 shadow-2xl pointer-events-none"
+          style={{ left: tooltip.x, top: tooltip.y }}
+        >
+          <div className="text-xs text-white/60 mb-0.5">{tooltip.label}</div>
+          <div className="text-sm font-bold text-gold-400">{formatCurrency(tooltip.value)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sub-components ───
+function RowItem({ rank, name, extra, sub }: { rank: number; name: string; extra: string; sub: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="text-xs text-white/30 w-4 shrink-0">#{rank + 1}</span>
+        <span className="text-white text-sm truncate">{name}</span>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="text-white/60 text-xs">{extra}</div>
+        <div className="text-gold-400 text-xs font-semibold">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function StatBlock({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="bg-sakura-card rounded-2xl border border-white/10 p-5">
+      <div className="flex items-center gap-2 mb-4">
+        {icon}
+        <h3 className="text-white font-semibold text-sm">{title}</h3>
+      </div>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+function SummaryBox({ color, label, value }: { color: string; label: string; value: string }) {
+  const colors: Record<string, string> = { gold: "from-gold-500/20 to-gold-600/10 border-gold-500/20", rose: "from-rose-500/20 to-rose-600/10 border-rose-500/20", emerald: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/20", blue: "from-blue-500/20 to-blue-600/10 border-blue-500/20" };
+  return (
+    <div className={`bg-gradient-to-br ${colors[color] || colors.gold} rounded-2xl border p-4`}>
+      <div className="text-white/60 text-xs mb-1">{label}</div>
+      <div className="text-lg font-bold text-white">{value}</div>
+    </div>
+  );
+}
+
+function ProfitDetailTable({ title, data, metric }: { title: string; data: { name: string; sales: number; revenue: number; cost: number; gross: number; margin: number }[]; metric: string }) {
+  return (
+    <div className="bg-sakura-card rounded-2xl border border-white/10 overflow-hidden">
+      <div className="p-4 border-b border-white/10">
+        <h3 className="text-white font-semibold text-sm">{title}</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-white/5 border-b border-white/10">
+              <th className="text-left px-3 py-2 text-white/50 font-medium">Tên</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">SL</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">Doanh thu</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">Chi phí</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">Lợi nhuận</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">Biên %</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {data.map((d, i) => (
+              <tr key={i} className="hover:bg-white/5">
+                <td className="px-3 py-2 text-white text-xs">{d.name}</td>
+                <td className="px-3 py-2 text-white/60 text-xs text-right">{d.sales}</td>
+                <td className="px-3 py-2 text-gold-400 text-xs text-right">{formatCurrency(d.revenue)}</td>
+                <td className="px-3 py-2 text-rose-300 text-xs text-right">{formatCurrency(d.cost)}</td>
+                <td className="px-3 py-2 text-emerald-300 text-xs text-right">{formatCurrency(d.gross)}</td>
+                <td className="px-3 py-2 text-white/60 text-xs text-right">{d.margin.toFixed(1)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ProductDetailTable({ allProducts, invoiceItems }: { allProducts: { id: string; name: string; code: string; category: string; sellingPrice: number; costPrice: number; stock: number }[]; invoiceItems: { id: string; name: string; quantity: number; unitPrice: number }[] }) {
+  const prodMap = useMemo(() => {
+    const map = new Map<string, { name: string; code: string; category: string; sellingPrice: number; costPrice: number; stock: number; qtySold: number; revenue: number }>();
+    allProducts.forEach(p => map.set(p.id, { ...p, qtySold: 0, revenue: 0 }));
+    invoiceItems.forEach(it => {
+      const e = map.get(it.id);
+      if (e) { e.qtySold += it.quantity; e.revenue += it.unitPrice * it.quantity; }
+    });
+    return Array.from(map.values()).filter(p => p.qtySold > 0).sort((a, b) => b.revenue - a.revenue);
+  }, [allProducts, invoiceItems]);
+
+  return (
+    <div className="bg-sakura-card rounded-2xl border border-white/10 overflow-hidden">
+      <div className="p-4 border-b border-white/10">
+        <h3 className="text-white font-semibold text-sm">Chi tiết sản phẩm đã bán</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-white/5 border-b border-white/10">
+              <th className="text-left px-3 py-2 text-white/50 font-medium">Mã SP</th>
+              <th className="text-left px-3 py-2 text-white/50 font-medium">Tên</th>
+              <th className="text-left px-3 py-2 text-white/50 font-medium">Nhóm</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">Đã bán</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">Doanh thu</th>
+              <th className="text-right px-3 py-2 text-white/50 font-medium">Tồn kho</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {prodMap.map((p, i) => (
+              <tr key={i} className="hover:bg-white/5">
+                <td className="px-3 py-2 text-white/40 text-xs">{p.code}</td>
+                <td className="px-3 py-2 text-white text-xs">{p.name}</td>
+                <td className="px-3 py-2 text-white/60 text-xs">{p.category}</td>
+                <td className="px-3 py-2 text-white text-xs text-right">{p.qtySold}</td>
+                <td className="px-3 py-2 text-gold-400 text-xs text-right">{formatCurrency(p.revenue)}</td>
+                <td className="px-3 py-2 text-white/60 text-xs text-right">{p.stock}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Reports Component ───
 export function Reports() {
   const [period, setPeriod] = useState<"today" | "week" | "month" | "year" | "custom">("today");
   const [customStart, setCustomStart] = useState("");
@@ -49,7 +373,6 @@ export function Reports() {
   const chartData = useMemo(() => {
     const now = new Date();
     if (period === "today") {
-      // Show hourly chart for today
       const hours: { label: string; revenue: number }[] = [];
       for (let h = 6; h <= 22; h++) {
         const hr = String(h).padStart(2, "0");
@@ -72,7 +395,7 @@ export function Reports() {
         const ds = d.toISOString().split("T")[0];
         const rev = filteredInvoices.filter(i => i.date.startsWith(ds)).reduce((s, i) => s + i.total, 0);
         const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-        days.push({ label: `${d.getDate()}/${d.getMonth()+1} (${dayNames[d.getDay()]})`, revenue: rev });
+        days.push({ label: `${d.getDate()}/${d.getMonth()+1}-${dayNames[d.getDay()]}`, revenue: rev });
       }
       return days;
     }
@@ -82,18 +405,19 @@ export function Reports() {
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
         const rev = filteredInvoices.filter(i => i.date.startsWith(dateStr)).reduce((s, i) => s + i.total, 0);
-        days.push({ label: String(d), revenue: rev });
+        days.push({ label: `Ngày ${d}`, revenue: rev });
       }
       return days;
     }
     // Year
-    const months: { label: string; revenue: number }[] = [];
+    const months = ["Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12"];
+    const result: { label: string; revenue: number }[] = [];
     for (let m = 0; m < 12; m++) {
       const monthPrefix = `${now.getFullYear()}-${String(m+1).padStart(2,"0")}`;
       const rev = filteredInvoices.filter(i => i.date.startsWith(monthPrefix)).reduce((s, i) => s + i.total, 0);
-      months.push({ label: `T${m+1}`, revenue: rev });
+      result.push({ label: months[m], revenue: rev });
     }
-    return months;
+    return result;
   }, [filteredInvoices, period, customStart, customEnd]);
 
   const maxRev = Math.max(...chartData.map(d => d.revenue), 1);
@@ -160,7 +484,7 @@ export function Reports() {
     const result: { serviceName: string; qtySold: number; revenue: number; laborCost: number; grossProfit: number; marginPercent: number }[] = [];
     filteredInvoices.forEach(inv => {
       inv.items.filter(it => it.type === "service").forEach(it => {
-        const laborCost = Math.round(it.unitPrice * 0.3); // giả định chi phí lao động ~30%
+        const laborCost = Math.round(it.unitPrice * 0.3);
         const row = result.find(r => r.serviceName === it.name);
         if (row) {
           row.qtySold += it.quantity;
@@ -322,7 +646,7 @@ export function Reports() {
         )}
       </div>
 
-            {/* Chart with bar/line toggle and auto-zoom */}
+      {/* Chart with bar/line toggle and auto-zoom */}
       {chartData.length > 0 && (
         <div className="bg-sakura-card rounded-2xl border border-white/10 p-5">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -348,16 +672,13 @@ export function Reports() {
       {/* Tab: Profit Report */}
       {activeTab === "profit" && (
         <>
-          {/* Overall summary */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <SummaryBox color="gold" label="Tổng doanh thu" value={formatCurrency(stats.revenue)} />
             <SummaryBox color="rose" label="Giá vốn hàng bán" value={formatCurrency(totalCogs + totalLaborCost)} />
             <SummaryBox color="emerald" label="Lợi nhuận gộp" value={formatCurrency(totalGrossProfit)} />
             <SummaryBox color="blue" label="Biên lợi nhuận" value={`${overallMargin.toFixed(1)}%`} />
           </div>
-          {/* Product detail table */}
           <ProfitDetailTable title="Chi tiết lợi nhuận sản phẩm" data={productProfit.map(p => ({name: p.productName, sales: p.qtySold, revenue: p.revenue, cost: p.costTotal, gross: p.grossProfit, margin: p.marginPercent}))} metric="sales"/>
-          {/* Service profitability table */}
           <ProfitDetailTable title="Chi tiết lợi nhuận dịch vụ" data={serviceProfit.map(s=>({name:s.serviceName,sales:s.qtySold,revenue:s.revenue,cost:s.laborCost,gross:s.grossProfit,margin:s.marginPercent}))} metric="service" />
         </>
       )}
@@ -366,185 +687,6 @@ export function Reports() {
       {activeTab === "product-detail" && (
         <ProductDetailTable allProducts={products} invoiceItems={filteredInvoices.flatMap(i=>i.items.filter(it=>it.type==='product'))} />
       )}
-    </div>
-  );
-}
-
-// Sub-components used in Reports
-function StatBlock({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (<div className="bg-sakura-card rounded-2xl border border-white/10 p-5">{<h3 className="text-white font-semibold mb-4 flex items-center gap-2">{icon} {title}</h3>}<div className="space-y-3">{children}</div></div>);
-}
-const RowItem = ({ rank, name, extra, sub }: { rank: number; name: string; extra: string; sub: string }) => (
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-2"><span className={`text-xs w-5 h-5 rounded-full flex items-center justify-center ${rank===0?"bg-gold-500/30 text-gold-400":"bg-white/10 text-white/50"}`}>{rank+1}</span><span className="text-sm text-white/80">{name}</span></div>
-    <div className="text-right"><div className="text-sm text-white font-medium">{extra}</div><div className="text-[10px] text-white/40">{sub}</div></div>
-  </div>
-);
-function SummaryBox({ color, label, value }: { color: "gold"|"rose"|"emerald"|"blue"; label: string; value: string }) {
-  const colors = { gold:"from-gold-500/20 to-gold-600/10 border-gold-500/20 text-gold-400", rose:"from-rose-500/20 to-rose-600/10 border-rose-500/20 text-rose-300", emerald:"from-emerald-500/20 to-emerald-600/10 border-emerald-500/20 text-emerald-300", blue:"from-blue-500/20 to-blue-600/10 border-blue-500/20 text-blue-300" };
-  return (<div className={`bg-gradient-to-br ${colors[color]} rounded-2xl border p-5`}><div className="text-white/60 text-sm">{label}</div><div className="text-xl font-bold mt-1">{value}</div></div>);
-}
-function ProfitDetailTable<T extends {name:string;sales?:number;revenue?:number;cost?:number;gross?:number;margin?:number}>({ title, data, metric }: { title: string; data: T[]; metric: "sales" | "service" }) {
-  return (<div className="bg-sakura-card rounded-2xl border border-white/10 p-5"><h3 className="text-white font-semibold mb-4">{title}</h3>
-    <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-white/5 border-b border-white/10">{metric==="sales" ?
-      [<th key="n" className="text-left px-3 py-2 text-white/50 text-xs">Tên sản phẩm</th>,<th key="q" className="text-right px-3 py-2 text-white/50 text-xs">Đã bán</th>,<th key="r" className="text-right px-3 py-2 text-white/50 text-xs">Doanh thu</th>,<th key="c" className="text-right px-3 py-2 text-white/50 text-xs">Giá vốn</th>,<th key="g" className="text-right px-3 py-2 text-white/50 text-xs">Lợi nhuận</th>,<th key="m" className="text-right px-3 py-2 text-white/50 text-xs">Biên %</th>] :
-      [<th key="n" className="text-left px-3 py-2 text-white/50 text-xs">Tên DV/Sản phẩm</th>,<th key="q" className="text-right px-3 py-2 text-white/50 text-xs">SL</th>,<th key="r" className="text-right px-3 py-2 text-white/50 text-xs">Doanh thu</th>,<th key="l" className="text-right px-3 py-2 text-white/50 text-xs">Chi phí LĐ</th>,<th key="g" className="text-right px-3 py-2 text-white/50 text-xs">Lợi nhuận</th>,<th key="m" className="text-right px-3 py-2 text-white/50 text-xs">Biên %</th>] }</tr></thead>
-      <tbody className="divide-y divide-white/5">{data.map((item,i)=>{
-        const g = item.gross??0, m = item.margin??0;
-        return(<tr key={i} className="hover:bg-white/5 transition">
-          <td className="px-3 py-2 text-white font-medium text-xs">{i+1}. {item.name}</td>
-          <td className="px-3 py-2 text-white/60 text-xs text-right">{item.sales}</td>
-          <td className="px-3 py-2 text-gold-400 text-xs text-right">{formatCurrency(item.revenue??0)}</td>
-          {metric==="service"?<td className="px-3 py-2 text-rose-300 text-xs text-right">{formatCurrency(item.cost??0)}</td>:<td className="px-3 py-2 text-rose-300 text-xs text-right">{formatCurrency(item.cost??0)}</td>}
-          <td className={`px-3 py-2 text-xs text-right font-semibold ${g>=0?"text-emerald-300":"text-rose-300"}`}>{formatCurrency(g)}</td>
-          <td className={`px-3 py-2 text-xs text-right font-mono ${m>=30?"text-emerald-300":m>=15?"text-gold-400":"text-rose-300"}`}>{m.toFixed(1)}%</td>
-        </tr>);
-      })}</tbody></table></div></div>);
-}
-function ProductDetailTable({ allProducts, invoiceItems }: { allProducts: any[]; invoiceItems: InvoiceItem[] }) {
-  const productSales = useMemo(() => {
-    const map = new Map<string, number>();
-    invoiceItems.forEach(it => map.set(it.id, (map.get(it.id) || 0) + it.quantity));
-    return map;
-  }, [invoiceItems]);
-  const stockMap = useMemo(() => allProducts.filter(p => p.active).map(p => ({
-    ...p,
-    sold: productSales.get(p.id) || 0,
-    remaining: p.stock - (productSales.get(p.id) || 0),
-  })), [allProducts, productSales]);
-  return (<div className="bg-sakura-card rounded-2xl border border-white/10 p-5"><h3 className="text-white font-semibold mb-4">Kho & Bán hàng thời gian thực</h3>
-    <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="bg-white/5 border-b border-white/10">
-      {["Mã SP","Tên","Barcode","Danh mục","Giá nhập","Giá bán","Tồn kho","Đã bán","Còn lại"].map(h=><th key={h} className="text-left px-3 py-2 text-white/50 text-xs">{h}</th>)}
-    </tr></thead><tbody className="divide-y divide-white/5">
-      {stockMap.map(p => {
-        const remaining = p.stock - p.sold;
-        return (<tr key={p.id} className="hover:bg-white/5 transition">
-          <td className="px-3 py-2 text-gold-400 text-xs font-mono">{p.code}</td>
-          <td className="px-3 py-2 text-white text-xs">{p.name}</td>
-          <td className="px-3 py-2 text-white/40 text-xs font-mono">{p.barcode}</td>
-          <td className="px-3 py-2 text-white/50 text-xs">{p.category}</td>
-          <td className="px-3 py-2 text-emerald-300 text-xs">{formatCurrency(p.costPrice)}</td>
-          <td className="px-3 py-2 text-white text-xs">{formatCurrency(p.sellingPrice)}</td>
-          <td className="px-3 py-2 text-white/60 text-xs">{p.stock}</td>
-          <td className="px-3 py-2 text-sakura-300 text-xs">{p.sold}</td>
-          <td className={`px-3 py-2 font-medium text-xs ${remaining <= p.minStock ? "text-rose-300" : "text-emerald-300"}`}>{Math.max(0, remaining)}</td>
-        </tr>);
-      })}
-    </tbody></table></div></div>);
-}
-
-
-// ─── SVG Bar/Line Chart Component (auto-zoom to data range) ──────────────
-interface ChartDataPoint { label: string; revenue: number }
-
-function formatK(n: number): string {
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-  if (n >= 1e3) return (n / 1e3).toFixed(0) + "k";
-  return String(Math.round(n));
-}
-
-function niceCeiling(v: number): number {
-  if (v <= 0) return 100;
-  const mag = Math.pow(10, Math.floor(Math.log10(v)));
-  const c = Math.ceil(v / mag) * mag;
-  return c < 100 ? 100 : c;
-}
-
-function tickVals(maxVal: number): number[] {
-  const t: number[] = [0];
-  for (let i = 1; i <= 4; i++) t.push(Math.round(maxVal / 5 * i));
-  return t;
-}
-
-function SimpleBarLineChart({ data, maxRev, type }: {
-  data: ChartDataPoint[];
-  maxRev: number;
-  type: "bar" | "line";
-}) {
-  const n = data.length;
-  const yMax = niceCeiling(maxRev || 1);
-  const svgH = 260;
-  const padTop = 30;
-  const padBot = 40;
-  const padL = 75;
-  const padR = 15;
-  const plotW = 600 - padL - padR;
-  const plotH = svgH - padTop - padBot;
-  const cellW = n === 1 ? plotW : plotW / (n - 1);
-
-  // Prepare points
-  const pts: { x: number; y: number }[] = [];
-  for (let i = 0; i < n; i++) {
-    const px = n === 1 ? padL + plotW / 2 : padL + i * cellW;
-    const py = padTop + plotH - (data[i].revenue / yMax) * plotH;
-    pts.push({ x: px, y: py });
-  }
-
-  // Line path
-  const lp = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-
-  // Tick labels on Y axis
-  const ticks = tickVals(yMax);
-
-  return (
-    <div className="overflow-x-auto pb-2 custom-scrollbar">
-      <svg viewBox={`0 0 ${padL + plotW + padR + 10} ${svgH}`} style={{ minWidth: 300 }} preserveAspectRatio="xMidYMid meet">
-        {/* Defs */}
-        <defs>
-          <linearGradient id="sbGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#c2185b"/>
-            <stop offset="100%" stopColor="#d4a853"/>
-          </linearGradient>
-          <linearGradient id="laGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#d4a853" stopOpacity="0.3"/>
-            <stop offset="100%" stopColor="#d4a853" stopOpacity="0"/>
-          </linearGradient>
-        </defs>
-
-        {/* X-Axis baseline */}
-        <line x1={padL} y1={padTop + plotH} x2={padL + plotW} y2={padTop + plotH} stroke="rgba(255,255,255,0.1)" />
-
-        {/* Y gridlines */}
-        {ticks.map((tv, j) => {
-          const yp = padTop + plotH - (tv / yMax) * plotH;
-          return (<g key={j}>
-            <line x1={padL} y1={yp} x2={padL + plotW} y2={yp} stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
-            <text x={padL - 8} y={yp + 4} fill="rgba(255,255,255,0.3)" fontSize="10" textAnchor="end">{formatK(tv)}</text>
-          </g>);
-        })}
-
-        {/* Bars mode */}
-        {type === "bar" && (() => {
-          const barWidth = Math.max(6, Math.min(40, (plotW - (n - 1) * 4) / n));
-          return <>
-            {pts.map((pt, idx) => {
-              const actualX = idx % 2 === 0 ? pt.x - barWidth / 2 : pt.x + cellW / 2 - barWidth / 2;
-              const bx = idx % 2 === 0 ? padL + idx * (cellW + 4) + (cellW - barWidth) / 2 : padL + idx * (cellW + 4) + (cellW - barWidth) / 2;
-              const bh = data[idx].revenue > 0 ? ((data[idx].revenue / yMax) * plotH) : 2;
-              const by = padTop + plotH - bh;
-              return (<rect key={idx} x={bx} y={by} width={barWidth} height={bh} rx={2} fill="url(#sbGrad)" opacity={0.85}><title>{`${data[idx].label}: ${formatCurrency(data[idx].revenue)}`}</title></rect>);
-            })}
-            {data.map((d, i) => (
-              <text key={"t"+i} x={padL + i * cellW + cellW/2} y={padTop + plotH + 18} fill="rgba(255,255,255,0.35)" fontSize="9" textAnchor="middle" transform={n > 16 ? `rotate(-30,${padL + i*cellW+cellW/2},${padTop+plotH+18})` : ""}>{d.label}</text>
-            ))}
-          </>;
-        })()}
-
-        {/* Line mode */}
-        {type !== "bar" && (<g>
-          {/* Area under curve */}
-          <path d={`${lp} L${pts[pts.length-1].x},${padTop+plotH} L${pts[0].x},${padTop+plotH} Z`} fill="url(#laGrad)" />
-          {/* Line */}
-          <path d={lp} fill="none" stroke="#d4a853" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          {/* Points */}
-          {pts.map((p, i) => (<circle key={i} cx={p.x} cy={p.y} r="3.5" fill="#d4a853" stroke="#3d1f2e" strokeWidth="2"><title>{`${data[i].label}: ${formatCurrency(data[i].revenue)}`}</title></circle>))}
-          {/* Labels */}
-          {data.map((d, i) => (
-            <text key={"tl"+i} x={pts[i].x} y={padTop + plotH + 18} fill="rgba(255,255,255,0.35)" fontSize="9" textAnchor="middle" transform={n > 16 ? `rotate(-30,${pts[i].x},${padTop+plotH+18})` : ""}>{d.label}</text>
-          ))}
-        </g>)}
-      </svg>
     </div>
   );
 }

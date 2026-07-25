@@ -395,106 +395,84 @@ export function CustomerDetail({ customerId, onNavigate }: { customerId: string;
         </button>
       </div>
 
-      {/* Quick Buy Modal */}
+      {/* Quick Buy — Compact Search Popup */}
       {showQuickBuy && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" onClick={() => setShowQuickBuy(false)}>
-          <div className="bg-gradient-to-br from-[#2d1b2e] to-[#3d1f2e] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-white/10">
-              <h3 className="text-lg font-semibold text-white font-serif">🛒 Mua nhanh cho {customer.name}</h3>
-              <button onClick={() => setShowQuickBuy(false)} className="text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              {/* Search and type toggle */}
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                  <input
-                    type="text"
-                    value={searchItem}
-                    onChange={e => setSearchItem(e.target.value)}
-                    placeholder="Tìm kiếm dịch vụ hoặc sản phẩm..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-sakura-400/50"
-                  />
-                </div>
-                <div className="flex gap-1 bg-white/5 rounded-lg p-0.5">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4 modal-backdrop" onClick={() => { setShowQuickBuy(false); setSearchItem(""); }}>
+          <div className="w-[420px] max-w-full bg-gradient-to-br from-[#2d1b2e] to-[#3d1f2e] border border-white/10 rounded-2xl shadow-2xl animate-fade-in" onClick={e => e.stopPropagation()}>
+            {/* Search bar */}
+            <div className="p-4 pb-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                <input
+                  type="text"
+                  value={searchItem}
+                  onChange={e => setSearchItem(e.target.value)}
+                  onBlur={() => setTimeout(() => setSearchItem(""), 200)}
+                  placeholder="Tìm nhanh dịch vụ / sản phẩm..."
+                  autoFocus
+                  className="w-full pl-10 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-sakura-400/50"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 bg-white/5 rounded-lg p-0.5">
                   <button onClick={() => { setItemType("service"); setSearchItem(""); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs transition ${itemType === "service" ? "bg-sakura-500/30 text-white" : "text-white/50"}`}>
-                    <Sparkles className="w-3.5 h-3.5 inline mr-1" />Dịch vụ
+                    onMouseDown={e => e.preventDefault()}
+                    className={`px-2 py-1 rounded-md text-[10px] transition ${itemType === "service" ? "bg-sakura-500/30 text-white" : "text-white/50"}`}>
+                    DV
                   </button>
                   <button onClick={() => { setItemType("product"); setSearchItem(""); }}
-                    className={`px-3 py-1.5 rounded-lg text-xs transition ${itemType === "product" ? "bg-sakura-500/30 text-white" : "text-white/50"}`}>
-                    <Package className="w-3.5 h-3.5 inline mr-1" />Sản phẩm
+                    onMouseDown={e => e.preventDefault()}
+                    className={`px-2 py-1 rounded-md text-[10px] transition ${itemType === "product" ? "bg-sakura-500/30 text-white" : "text-white/50"}`}>
+                    SP
                   </button>
                 </div>
               </div>
-
-              {/* Search results dropdown */}
+              {/* Dropdown suggestions */}
               {searchItem && filteredQuickItems.length > 0 && (
-                <div className="absolute z-50 w-[calc(100%-2.5rem)] bg-[#2d1b2e]/95 border border-white/10 rounded-xl mt-1 overflow-hidden shadow-lg">
+                <div className="absolute z-50 w-[calc(420px-2rem)] max-w-[calc(100vw-3rem)] bg-[#1e1224]/95 border border-white/10 rounded-xl mt-1 overflow-hidden shadow-xl">
                   {filteredQuickItems.map(it => (
                     <button
                       key={it.id}
-                      onClick={() => addQuickItem(itemType, it.id, it.name, itemType === "service" ? (it as any).price : (it as any).sellingPrice)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-white/80 hover:bg-white/10 transition text-sm"
+                      onMouseDown={e => { e.preventDefault(); addQuickItem(itemType, it.id, it.name, itemType === "service" ? (it as any).price : (it as any).sellingPrice); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left text-white/80 hover:bg-white/10 transition text-xs"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
-                        {it.image ? <img src={it.image} alt={it.name} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 text-white/30" />}
+                      <div className="w-6 h-6 rounded bg-white/10 overflow-hidden flex items-center justify-center shrink-0">
+                        {it.image ? <img src={it.image} alt="" className="w-full h-full object-cover" /> : <Package className="w-3 h-3 text-white/30" />}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-white font-medium truncate">{it.name}</div>
-                        <div className="text-[10px] text-white/40">{it.code}</div>
-                      </div>
-                      <span className="text-gold-400 font-semibold text-xs whitespace-nowrap">
-                        {formatCurrency(itemType === "service" ? (it as any).price : (it as any).sellingPrice)}
-                      </span>
-                      <Plus className="w-4 h-4 text-sakura-300 shrink-0" />
+                      <span className="flex-1 truncate text-white font-medium">{it.name}</span>
+                      <span className="text-gold-400 font-semibold shrink-0">{formatCurrency(itemType === "service" ? (it as any).price : (it as any).sellingPrice)}</span>
+                      <Plus className="w-3 h-3 text-sakura-300 shrink-0" />
                     </button>
                   ))}
                 </div>
               )}
-
-              {/* Selected items cart */}
-              <div className="space-y-2 min-h-[80px]">
-                {quickItems.length === 0 ? (
-                  <div className="text-center py-6 text-white/30 text-sm">Chưa có sản phẩm/dịch vụ nào được chọn</div>
-                ) : (
-                  quickItems.map((it, i) => (
-                    <div key={`${it.type}-${it.id}`} className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-2.5 border border-white/10">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <Badge variant={it.type === "service" ? "info" : "success"}>
-                          {it.type === "service" ? "DV" : "SP"}
-                        </Badge>
-                        <span className="text-white text-sm truncate">{it.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => updateQuickQty(i, -1)} className="p-1 rounded bg-white/10 text-white/60 hover:text-white"><Minus className="w-3 h-3" /></button>
-                          <span className="text-white text-sm w-6 text-center">{it.quantity}</span>
-                          <button onClick={() => updateQuickQty(i, 1)} className="p-1 rounded bg-white/10 text-white/60 hover:text-white"><Plus className="w-3 h-3" /></button>
-                        </div>
-                        <span className="text-gold-400 text-sm font-medium w-20 text-right">{formatCurrency(it.unitPrice * it.quantity)}</span>
-                        <button onClick={() => removeQuickItem(i)} className="p-1 rounded text-rose-400 hover:bg-rose-500/20"><X className="w-3.5 h-3.5" /></button>
-                      </div>
+            </div>
+            {/* Cart items */}
+            <div className="px-4 pb-4 space-y-1.5 max-h-[240px] overflow-y-auto">
+              {quickItems.length === 0 ? (
+                <div className="text-center py-4 text-white/25 text-xs">Chưa chọn món nào</div>
+              ) : (
+                quickItems.map((it, i) => (
+                  <div key={`${it.type}-${it.id}`} className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+                    <Badge variant={it.type === "service" ? "info" : "success"}>{it.type === "service" ? "DV" : "SP"}</Badge>
+                    <span className="text-white text-xs flex-1 truncate">{it.name}</span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => updateQuickQty(i, -1)} className="p-0.5 rounded bg-white/10 text-white/60 hover:text-white"><Minus className="w-2.5 h-2.5" /></button>
+                      <span className="text-white text-xs w-5 text-center">{it.quantity}</span>
+                      <button onClick={() => updateQuickQty(i, 1)} className="p-0.5 rounded bg-white/10 text-white/60 hover:text-white"><Plus className="w-2.5 h-2.5" /></button>
                     </div>
-                  ))
-                )}
-              </div>
-
-              {/* Total + Create */}
-              {quickItems.length > 0 && (
-                <div className="border-t border-white/10 pt-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-white/60 text-sm">Tổng cộng</span>
-                    <span className="text-xl font-bold text-gold-400">{formatCurrency(quickTotal)}</span>
+                    <span className="text-gold-400 text-xs font-medium w-16 text-right">{formatCurrency(it.unitPrice * it.quantity)}</span>
+                    <button onClick={() => removeQuickItem(i)} className="p-0.5 rounded text-rose-400 hover:bg-rose-500/20"><X className="w-2.5 h-2.5" /></button>
                   </div>
-                  <button
-                    onClick={handleQuickCreateInvoice}
-                    className="w-full px-4 py-3 bg-gradient-to-r from-sakura-500 to-rose-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition shadow-lg shadow-sakura-500/20"
-                  >
-                    🛒 Tạo hóa đơn & Thanh toán ngay
-                  </button>
+                ))
+              )}
+              {quickItems.length > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t border-white/10 mt-2">
+                  <span className="text-white/60 text-xs">Tổng</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold text-gold-400">{formatCurrency(quickTotal)}</span>
+                    <button onClick={handleQuickCreateInvoice} className="px-3 py-1.5 bg-gradient-to-r from-sakura-500 to-rose-500 text-white rounded-lg text-xs font-medium hover:opacity-90 transition shadow">
+                      Tạo HD
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
